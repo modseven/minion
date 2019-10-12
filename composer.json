@@ -34,7 +34,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Modseven\\ORM\\": "classes"
+      "Modseven\\Minion\\": "classes"
     }
   },
   "minimum-stability": "dev",

@@ -1,0 +1,6 @@
+#!/usr/bin/env php
+<?php
+
+$public = __DIR__ . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR;
+
+include $public .'index.php';
