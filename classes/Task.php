@@ -9,86 +9,76 @@
 
 namespace Modseven\Minion;
 
+use KO7\Arr;
+use KO7\Validation;
+use KO7\View;
+
 abstract class Task
 {
     /**
-     * The separator used to separate different levels of tasks
+     * The list of options this task accepts and their default values.
+     * @var array
+     */
+    protected array $_options = [];
+
+    /**
+     * Populated with the accepted options for this task.
+     * This array is automatically populated based on $_options.
+     * @var array
+     */
+    protected array $_accepted_options = [];
+
+    /**
+     * Default method to execute
      * @var string
      */
-    public static string $task_separator = ':';
+    protected string $_method = '_execute';
 
     /**
-     * Converts a task (e.g. db:migrate to a class name)
-     *
-     * @param string  Task name
-     *
-     * @return string Class name
+     * Translation file that get's passed to Validation::errors() when validation fails
+     * @var string
      */
-    public static function convert_task_to_class_name($task): string
-    {
-        $task = trim($task);
-
-        if (empty($task))
-        {
-            return '';
-        }
-
-        return 'Task_' . implode('_', array_map('ucfirst', explode(Minion_Task::$task_separator, $task)));
-    }
-
-    /**
-     * Gets the task name of a task class / task object
-     *
-     * @param string|Minion_Task The task class / object
-     *
-     * @return string             The task name
-     */
-    public static function convert_class_to_task($class)
-    {
-        if (is_object($class)) {
-            $class = get_class($class);
-        }
-
-        return strtolower(str_replace('_', Minion_Task::$task_separator, substr($class, 5)));
-    }
+    protected string $_errors_file = 'validation';
 
     /**
      * Factory for loading minion tasks
      *
      * @param array An array of command line options. It should contain the 'task' key
      *
-     * @return Minion_Task The Minion task
-     * @throws Minion_Exception_InvalidTask
+     * @return Task
+     *
+     * @throws Exception
      */
-    public static function factory($options)
+    public static function factory(array $options) : Task
     {
-        if (($task = Arr::get($options, 'task')) !== null) {
+        if (($task = Arr::get($options, 'task')) !== null)
+        {
             unset($options['task']);
         }
-        else {
-            if (($task = Arr::get($options, 0)) !== null) {
-                // The first positional argument (aka 0) may be the task name
-                unset($options[0]);
-            }
-            else {
-                // If we didn't get a valid task, generate the help
-                $task = 'help';
-            }
+        elseif (($task = Arr::get($options, 0)) !== null)
+        {
+            // The first positional argument (aka 0) may be the task name
+            unset($options[0]);
+        }
+        else
+        {
+            // If we didn't get a valid task, generate the help
+            $task = '\\Modseven\\Task\\Help';
         }
 
-        $class = Minion_Task::convert_task_to_class_name($task);
-
-        if ( ! class_exists($class)) {
-            throw new Minion_Exception_InvalidTask(
+        if ( ! class_exists($task))
+        {
+            throw new Exception(
                 "Task ':task' is not a valid minion task",
-                [':task' => $class]
+                [':task' => $task]
             );
         }
 
-        $class = new $class;
+        $class = new $task;
 
-        if ( ! $class instanceof Minion_Task) {
-            throw new Minion_Exception_InvalidTask(
+        if ( ! $class instanceof self)
+        {
+            throw new Exception(
                 "Task ':task' is not a valid minion task",
                 [':task' => $class]
             );
@@ -97,7 +87,8 @@ abstract class Task
         $class->set_options($options);
 
         // Show the help page for this task if requested
-        if (array_key_exists('help', $options)) {
+        if (array_key_exists('help', $options))
+        {
             $class->_method = '_help';
         }
 
@@ -105,38 +96,14 @@ abstract class Task
     }
 
     /**
-     * The list of options this task accepts and their default values.
-     *     protected $_options = array(
-     *         'limit' => 4,
-     *         'table' => NULL,
-     *     );
-     *
-     * @var array
+     * Task constructor.
      */
-    protected $_options = [];
-
-    /**
-     * Populated with the accepted options for this task.
-     * This array is automatically populated based on $_options.
-     *
-     * @var array
-     */
-    protected $_accepted_options = [];
-
-    protected $_method = '_execute';
-
     protected function __construct()
     {
         // Populate $_accepted_options based on keys from $_options
         $this->_accepted_options = array_keys($this->_options);
     }
 
-    /**
-     * The file that get's passes to Validation::errors() when validation fails
-     *
-     * @var string|NULL
-     */
-    protected $_errors_file = 'validation';
 
     /**
      * Gets the task name for the task
@@ -145,24 +112,21 @@ abstract class Task
      */
     public function __toString()
     {
-        static $task_name = null;
-
-        if ($task_name === null) {
-            $task_name = Minion_Task::convert_class_to_task($this);
-        }
-
-        return $task_name;
+        return get_class($this);
     }
 
     /**
      * Sets options for this task
      * $param  array  the array of options to set
      *
-     * @return this
+     * @param array $options Options to set
+     *
+     * @return self
      */
-    public function set_options(array $options)
+    public function set_options(array $options) : self
     {
-        foreach ($options as $key => $value) {
+        foreach ($options as $key => $value)
+        {
             $this->_options[$key] = $value;
         }
 
@@ -174,7 +138,7 @@ abstract class Task
      *
      * @return array
      */
-    public function get_options()
+    public function get_options() : array
     {
         return (array)$this->_options;
     }
@@ -184,27 +148,23 @@ abstract class Task
      *
      * @return array
      */
-    public function get_accepted_options()
+    public function get_accepted_options() : array
     {
         return (array)$this->_accepted_options;
     }
 
     /**
      * Adds any validation rules/labels for validating _options
-     *     public function build_validation(Validation $validation)
-     *     {
-     *         return parent::build_validation($validation)
-     *             ->rule('paramname', 'not_empty'); // Require this param
-     *     }
      *
-     * @param Validation   the validation object to add rules to
+     * @param Validation $validation  The validation object to add rules to
      *
      * @return Validation
      */
-    public function build_validation(Validation $validation)
+    public function build_validation(Validation $validation) : Validation
     {
         // Add a rule to each key making sure it's in the task
-        foreach ($validation->data() as $key => $value) {
+        foreach ($validation->data() as $key => $value)
+        {
             $validation->rule($key, [$this, 'valid_option'], [':validation', ':field']);
         }
 
@@ -216,17 +176,15 @@ abstract class Task
      *
      * @return string
      */
-    public function get_errors_file()
+    public function get_errors_file() : string
     {
         return $this->_errors_file;
     }
 
     /**
      * Execute the task with the specified set of options
-     *
-     * @return null
      */
-    public function execute()
+    public function execute() : void
     {
         $options = $this->get_options();
 
@@ -234,12 +192,14 @@ abstract class Task
         $validation = Validation::factory($options);
         $validation = $this->build_validation($validation);
 
-        if ($this->_method != '_help' AND ! $validation->check()) {
+        if ($this->_method !== '_help' && ! $validation->check())
+        {
             echo View::factory('minion/error/validation')
-                     ->set('task', Minion_Task::convert_class_to_task($this))
+                     ->set('task', get_class($this))
                      ->set('errors', $validation->errors($this->get_errors_file()));
         }
-        else {
+        else
+        {
             // Finally, run the task
             $method = $this->_method;
             echo $this->{$method}($options);
