@@ -334,7 +334,7 @@ abstract class Task
 
                 if ($task)
                 {
-                    $output = array_merge($output, $task);
+                    $output[] = $task;
                 }
             }
             else
@@ -342,6 +342,8 @@ abstract class Task
                 $output[] = strtolower($prefix . substr($file, 0, -strlen('.php')));
             }
         }
+
+        $output = array_merge([], ...$output);
 
         return $output;
     }
