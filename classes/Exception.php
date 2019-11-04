@@ -3,7 +3,8 @@
  * Minion Exception class
  *
  * @copyright  (c) 2007-2016  Kohana Team
- * @copyright  (c) since 2016 Koseven Team
+ * @copyright  (c) 2016-2019  Koseven Team
+ * @copyright  (c) since 2019 Modseven Team
  * @license        https://koseven.ga/LICENSE
  */
 
@@ -11,7 +12,7 @@ namespace Modseven\Minion;
 
 use Throwable;
 
-class Exception extends \KO7\Exception
+class Exception extends \Modseven\Exception
 {
     /**
      * Inline exception handler, displays the error message, source of the
@@ -20,13 +21,13 @@ class Exception extends \KO7\Exception
      *
      * @param Throwable $t
      */
-    public static function handler(Throwable $t) : void
+    public static function handler(Throwable $t): void
     {
         try {
             // Log the exception
-            \KO7\Exception::log($t);
+            self::log($t);
 
-            echo \KO7\Exception::text($t);
+            echo self::text($t);
 
             $exit_code = $t->getCode();
 
@@ -44,7 +45,7 @@ class Exception extends \KO7\Exception
             ob_get_level() and ob_clean();
 
             // Display the exception text
-            echo \KO7\Exception::text($e), "\n";
+            echo self::text($e), "\n";
 
             // Exit with an error status
             exit(1);

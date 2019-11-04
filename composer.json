@@ -29,8 +29,7 @@
     }
   ],
   "require": {
-    "php": ">=7.4",
-    "toitzi/modseven": "*"
+    "modseven/core": "*"
   },
   "autoload": {
     "psr-4": {

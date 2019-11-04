@@ -1,6 +1,15 @@
 #!/usr/bin/env php
 <?php
 
-$public = __DIR__ . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR;
+$index = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..'
+         . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'index.php';
 
-include $public .'index.php';
+// If downloaded or installed as composer extension
+if (file_exists($index))
+{
+    include $index;
+}
+else
+{
+    die("Could not find 'index.php'. Please change the path in your minion executable.");
+}

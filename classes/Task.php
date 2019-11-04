@@ -3,15 +3,22 @@
  * Interface that all minion tasks must implement
  *
  * @copyright  (c) 2007-2016  Kohana Team
- * @copyright  (c) since 2016 Koseven Team
+ * @copyright  (c) 2016-2019  Koseven Team
+ * @copyright  (c) since 2019 Modseven Team
  * @license        https://koseven.ga/LICENSE
  */
 
 namespace Modseven\Minion;
 
-use KO7\Arr;
-use KO7\Validation;
-use KO7\View;
+use Modseven\Arr;
+use Modseven\Core;
+use Modseven\View;
+use Modseven\Request;
+use Modseven\Validation;
+
+use ReflectionClass;
+use ReflectionException;
+use Modseven\Minion\Task\Help;
 
 abstract class Task
 {
@@ -20,6 +27,12 @@ abstract class Task
      * @var array
      */
     protected array $_options = [];
+
+    /**
+     * Holds the Task separator symbol
+     * @var string
+     */
+    protected static string $task_separator = ':';
 
     /**
      * Populated with the accepted options for this task.
@@ -63,25 +76,23 @@ abstract class Task
         else
         {
             // If we didn't get a valid task, generate the help
-            $task = '\\Modseven\\Task\\Help';
+            $task = Help::class;
         }
 
         if ( ! class_exists($task))
         {
-            throw new Exception(
-                "Task ':task' is not a valid minion task",
-                [':task' => $task]
-            );
+            throw new Exception("Task ':task' is not a valid minion task", [
+                ':task' => $task
+            ]);
         }
 
         $class = new $task;
 
         if ( ! $class instanceof self)
         {
-            throw new Exception(
-                "Task ':task' is not a valid minion task",
-                [':task' => $class]
-            );
+            throw new Exception("Task ':task' is not a valid minion task", [
+                ':task' => $class
+            ]);
         }
 
         $class->set_options($options);
@@ -183,6 +194,8 @@ abstract class Task
 
     /**
      * Execute the task with the specified set of options
+     *
+     * @throws Exception
      */
     public function execute() : void
     {
@@ -192,92 +205,111 @@ abstract class Task
         $validation = Validation::factory($options);
         $validation = $this->build_validation($validation);
 
-        if ($this->_method !== '_help' && ! $validation->check())
+        try
         {
-            echo View::factory('minion/error/validation')
-                     ->set('task', get_class($this))
-                     ->set('errors', $validation->errors($this->get_errors_file()));
+            if ($this->_method !== '_help' && ! $validation->check())
+            {
+                echo View::factory('minion/error/validation')
+                         ->set('task', get_class($this))
+                         ->set('errors', $validation->errors($this->get_errors_file()));
+            }
+            else
+            {
+                // Finally, run the task
+                $method = $this->_method;
+                echo $this->{$method}($options);
+            }
         }
-        else
+        catch (\Modseven\Exception $e)
         {
-            // Finally, run the task
-            $method = $this->_method;
-            echo $this->{$method}($options);
+            throw new Exception($e->getMessage(), null, $e->getCode(), $e);
         }
     }
 
-    abstract protected function _execute(array $params);
 
     /**
      * Outputs help for this task
      *
-     * @return null
+     * @param array $params Parameter
+     *
+     * @throws Exception
      */
-    protected function _help(array $params)
+    protected function _help(array $params) : void
     {
-        $tasks = $this->_compile_task_list(KO7::list_files('classes/task'));
+        try
+        {
+            $inspector = new ReflectionClass($this);
 
-        $inspector = new ReflectionClass($this);
+            [$description, $tags] = $this->_parse_doccomment($inspector->getDocComment());
 
-        list($description, $tags) = $this->_parse_doccomment($inspector->getDocComment());
-
-        $view = View::factory('minion/help/task')
-                    ->set('description', $description)
-                    ->set('tags', (array)$tags)
-                    ->set('task', Minion_Task::convert_class_to_task($this));
+            $view = View::factory('minion/help/task')
+                        ->set('description', $description)
+                        ->set('tags', (array)$tags)
+                        ->set('task', get_class($this));
+        }
+        catch (ReflectionException|\Modseven\Exception $e)
+        {
+            throw new Exception($e->getMessage(), null, $e->getCode(), $e);
+        }
 
         echo $view;
     }
 
-
-    public function valid_option(Validation $validation, $option)
+    /**
+     * Validate if option exists
+     *
+     * @param Validation $validation  Validation Object
+     * @param mixed      $option      Option
+     */
+    public function valid_option(Validation $validation, $option) : void
     {
-        if ( ! in_array($option, $this->_accepted_options)) {
+        if ( ! in_array($option, $this->_accepted_options, true))
+        {
             $validation->error($option, 'minion_option');
         }
     }
 
     /**
-     * Parses a doccomment, extracting both the comment and any tags associated
-     * Based on the code in Kodoc::parse()
+     * Parses a doc comment, extracting both the comment and any tags associated
      *
      * @param string The comment to parse
      *
      * @return array First element is the comment, second is an array of tags
      */
-    protected function _parse_doccomment($comment)
+    protected function _parse_doccomment(string $comment) : array
     {
         // Normalize all new lines to \n
         $comment = str_replace(["\r\n", "\n"], "\n", $comment);
 
         // Remove the phpdoc open/close tags and split
-        $comment = array_slice(explode("\n", $comment), 1, -1);
+        $exploded = array_slice(explode("\n", $comment), 1, -1);
 
         // Tag content
         $tags = [];
 
-        foreach ($comment as $i => $line) {
+        foreach ($exploded as $i => $line)
+        {
             // Remove all leading whitespace
             $line = preg_replace('/^\s*\* ?/m', '', $line);
 
             // Search this line for a tag
-            if (preg_match('/^@(\S+)(?:\s*(.+))?$/', $line, $matches)) {
+            if (preg_match('/^@(\S+)(?:\s*(.+))?$/', $line, $matches))
+            {
                 // This is a tag line
-                unset($comment[$i]);
+                unset($exploded[$i]);
 
                 $name = $matches[1];
-                $text = isset($matches[2]) ? $matches[2] : '';
-
-                $tags[$name] = $text;
+                $tags[$name] = $matches[2] ?? '';
             }
-            else {
-                $comment[$i] = (string)$line;
+            else
+            {
+                $exploded[$i] = (string)$line;
             }
         }
 
-        $comment = trim(implode("\n", $comment));
+        $exploded = trim(implode("\n", $exploded));
 
-        return [$comment, $tags];
+        return [$exploded, $tags];
     }
 
     /**
@@ -288,22 +320,26 @@ abstract class Task
      *
      * @return array Compiled tasks
      */
-    protected function _compile_task_list(array $files, $prefix = '')
+    protected function _compile_task_list(array $files, string $prefix = '') : array
     {
         $output = [];
 
-        foreach ($files as $file => $path) {
+        foreach ($files as $file => $path)
+        {
             $file = substr($file, strrpos($file, DIRECTORY_SEPARATOR) + 1);
 
-            if (is_array($path) AND count($path)) {
-                $task = $this->_compile_task_list($path, $prefix . $file . Minion_Task::$task_separator);
+            if ($path && is_array($path))
+            {
+                $task = $this->_compile_task_list($path, $prefix . $file . static::$task_separator);
 
-                if ($task) {
+                if ($task)
+                {
                     $output = array_merge($output, $task);
                 }
             }
-            else {
-                $output[] = strtolower($prefix . substr($file, 0, -strlen(EXT)));
+            else
+            {
+                $output[] = strtolower($prefix . substr($file, 0, -strlen('.php')));
             }
         }
 
@@ -315,24 +351,47 @@ abstract class Task
      * Minion tasks have no $_SERVER variables; to use the base url functions
      * the domain name can be set in the site config file, or as argument.
      *
-     * @param string $domain_name the url of the server: example https://www.example.com
+     * @param string $domain_name the url of the server
+     *
+     * @throws Exception
      */
-    public static function set_domain_name($domain_name = '')
+    public static function set_domain_name(string $domain_name = '') : void
     {
-        if (Request::$initial === null) {
-            $domain_name =
-                empty($domain_name) ? Arr::get(KO7::$config->load('site'), 'minion_domain_name', '') : $domain_name;
+        try
+        {
+            if (Request::$initial === null)
+            {
+                $domain_name = empty($domain_name) ? Arr::get(Core::$config->load('site'), 'minion_domain_name', '') : $domain_name;
 
-            // Add trailing slash
-            KO7::$base_url = preg_replace('~^https?://[^/]+$~', '$0/', $domain_name);
+                // Add trailing slash
+                Core::$base_url = preg_replace('~^https?://[^/]+$~', '$0/', $domain_name);
 
-            // Initialize Request Class
-            $request = Request::factory();
+                // Initialize Request Class
+                $request = Request::factory();
 
-            // Set HTTPS for https based urls
-            $request->secure(preg_match_all('#(https)://#i', KO7::$base_url, $result) === 1);
+                // Set HTTPS for https based urls
+                if ($request !== null)
+                {
+                    $request->secure(preg_match_all('#(https)://#i', Core::$base_url, $result) === 1);
 
-            Request::$initial = $request;
+                    Request::$initial = $request;
+                }
+            }
         }
+        catch (\Exception $e)
+        {
+            throw new Exception($e->getMessage(), null, $e->getCode(), $e);
+        }
+
     }
+
+    /**
+     * Needs to be defined for each task...This function is called to execute the Task
+     * and handles it's behaviour.
+     *
+     * @param array $params Parameter given to the Task
+     *
+     * @return mixed
+     */
+    abstract protected function _execute(array $params);
 }
