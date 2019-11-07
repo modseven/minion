@@ -12,15 +12,4 @@ namespace Modseven\Minion\Exception;
 
 use Modseven\Minion\Exception;
 
-class InvalidTask extends Exception
-{
-    /**
-     * Formats the error Message to work in CLI
-     *
-     * @return string
-     */
-    public function format_for_cli() : string
-    {
-        return 'ERROR: ' . $this->getMessage() . PHP_EOL;
-    }
-}
+class InvalidTask extends Exception {}

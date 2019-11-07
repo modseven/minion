@@ -232,7 +232,7 @@ class CLI
      * @param string  $text     the text to output
      * @param boolean $end_line whether the line is done being replaced
      */
-    public static function write_replace(string $text = '', bool $end_line = false) : void
+    public static function writeReplace(string $text = '', bool $end_line = false) : void
     {
         // Append a newline if $end_line is TRUE
         $text = $end_line ? $text . PHP_EOL : $text;

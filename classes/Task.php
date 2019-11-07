@@ -15,10 +15,11 @@ use Modseven\Core;
 use Modseven\View;
 use Modseven\Request;
 use Modseven\Validation;
+use Modseven\Minion\Task\Help;
+use Modseven\Minion\Exception\InvalidTask;
 
 use ReflectionClass;
 use ReflectionException;
-use Modseven\Minion\Task\Help;
 
 abstract class Task
 {
@@ -60,7 +61,7 @@ abstract class Task
      *
      * @return Task
      *
-     * @throws Exception
+     * @throws InvalidTask
      */
     public static function factory(array $options) : Task
     {
@@ -81,7 +82,7 @@ abstract class Task
 
         if ( ! class_exists($task))
         {
-            throw new Exception("Task ':task' is not a valid minion task", [
+            throw new InvalidTask("Task ':task' is not a valid minion task", [
                 ':task' => $task
             ]);
         }
@@ -90,12 +91,12 @@ abstract class Task
 
         if ( ! $class instanceof self)
         {
-            throw new Exception("Task ':task' is not a valid minion task", [
+            throw new InvalidTask("Task ':task' is not a valid minion task", [
                 ':task' => $class
             ]);
         }
 
-        $class->set_options($options);
+        $class->setOptions($options);
 
         // Show the help page for this task if requested
         if (array_key_exists('help', $options))
@@ -134,7 +135,7 @@ abstract class Task
      *
      * @return self
      */
-    public function set_options(array $options) : self
+    public function setOptions(array $options) : self
     {
         foreach ($options as $key => $value)
         {
@@ -149,7 +150,7 @@ abstract class Task
      *
      * @return array
      */
-    public function get_options() : array
+    public function getOptions() : array
     {
         return (array)$this->_options;
     }
@@ -159,7 +160,7 @@ abstract class Task
      *
      * @return array
      */
-    public function get_accepted_options() : array
+    public function getAcceptedOptions() : array
     {
         return (array)$this->_accepted_options;
     }
@@ -171,12 +172,12 @@ abstract class Task
      *
      * @return Validation
      */
-    public function build_validation(Validation $validation) : Validation
+    public function buildValidation(Validation $validation) : Validation
     {
         // Add a rule to each key making sure it's in the task
         foreach ($validation->data() as $key => $value)
         {
-            $validation->rule($key, [$this, 'valid_option'], [':validation', ':field']);
+            $validation->rule($key, [$this, 'validOption'], [':validation', ':field']);
         }
 
         return $validation;
@@ -187,7 +188,7 @@ abstract class Task
      *
      * @return string
      */
-    public function get_errors_file() : string
+    public function getErrorsFile() : string
     {
         return $this->_errors_file;
     }
@@ -199,11 +200,11 @@ abstract class Task
      */
     public function execute() : void
     {
-        $options = $this->get_options();
+        $options = $this->getOptions();
 
         // Validate $options
         $validation = Validation::factory($options);
-        $validation = $this->build_validation($validation);
+        $validation = $this->buildValidation($validation);
 
         try
         {
@@ -211,7 +212,7 @@ abstract class Task
             {
                 echo View::factory('minion/error/validation')
                          ->set('task', get_class($this))
-                         ->set('errors', $validation->errors($this->get_errors_file()));
+                         ->set('errors', $validation->errors($this->getErrorsFile()));
             }
             else
             {
@@ -240,7 +241,7 @@ abstract class Task
         {
             $inspector = new ReflectionClass($this);
 
-            [$description, $tags] = $this->_parse_doccomment($inspector->getDocComment());
+            [$description, $tags] = $this->_parseDocComment($inspector->getDocComment());
 
             $view = View::factory('minion/help/task')
                         ->set('description', $description)
@@ -261,7 +262,7 @@ abstract class Task
      * @param Validation $validation  Validation Object
      * @param mixed      $option      Option
      */
-    public function valid_option(Validation $validation, $option) : void
+    public function validOption(Validation $validation, $option) : void
     {
         if ( ! in_array($option, $this->_accepted_options, true))
         {
@@ -276,7 +277,7 @@ abstract class Task
      *
      * @return array First element is the comment, second is an array of tags
      */
-    protected function _parse_doccomment(string $comment) : array
+    protected function _parseDocComment(string $comment) : array
     {
         // Normalize all new lines to \n
         $comment = str_replace(["\r\n", "\n"], "\n", $comment);
@@ -320,7 +321,7 @@ abstract class Task
      *
      * @return array Compiled tasks
      */
-    protected function _compile_task_list(array $files, string $prefix = '') : array
+    protected function _compileTaskList(array $files, string $prefix = '') : array
     {
         $output = [];
         $stacked = [];
@@ -331,7 +332,7 @@ abstract class Task
 
             if ($path && is_array($path))
             {
-                $task = $this->_compile_task_list($path, $prefix . $file . static::$task_separator);
+                $task = $this->_compileTaskList($path, $prefix . $file . static::$task_separator);
 
                 if ($task)
                 {
@@ -372,7 +373,7 @@ abstract class Task
      *
      * @throws Exception
      */
-    public static function set_domain_name(string $domain_name = '') : void
+    public static function setDomainName(string $domain_name = '') : void
     {
         try
         {

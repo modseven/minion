@@ -26,11 +26,11 @@ class Help extends Task
      */
     protected function _execute(array $params) : void
     {
-        $tasks = $this->_compile_task_list(Core::list_files('classes/Task'));
+        $tasks = $this->_compileTaskList(Core::listFiles('classes' . DIRECTORY_SEPARATOR . 'Task'));
 
         try
         {
-            $view = new View('minion/help/list');
+            $view = new View('minion' . DIRECTORY_SEPARATOR . 'help' . DIRECTORY_SEPARATOR . 'list');
         }
         catch (\Modseven\Exception $e)
         {
