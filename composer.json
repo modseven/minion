@@ -36,6 +36,9 @@
       "Modseven\\Minion\\": "classes"
     }
   },
+  "extra" : {
+    "modseven" : true
+  },
   "minimum-stability": "dev",
   "prefer-stable": true
 }
