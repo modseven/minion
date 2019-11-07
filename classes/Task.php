@@ -323,6 +323,7 @@ abstract class Task
     protected function _compile_task_list(array $files, string $prefix = '') : array
     {
         $output = [];
+        $stacked = [];
 
         foreach ($files as $file => $path)
         {
@@ -334,7 +335,7 @@ abstract class Task
 
                 if ($task)
                 {
-                    $output[] = $task;
+                    $stacked[] = $task;
                 }
             }
             else
@@ -343,9 +344,7 @@ abstract class Task
             }
         }
 
-        $output = array_merge([], ...$output);
-
-        return $output;
+        return array_merge($output, ...$stacked);
     }
 
     /**
