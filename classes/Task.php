@@ -340,7 +340,23 @@ abstract class Task
             }
             else
             {
-                $output[] = strtolower($prefix . substr($file, 0, -strlen('.php')));
+                if (strpos($path, APPPATH) !== false)
+                {
+                    $output[] = '\\\\<your-app-namepsace>\\\\' . $prefix . substr($file, 0, -4);
+                }
+                else
+                {
+                    $info = str_replace(DIRECTORY_SEPARATOR . 'classes', '', substr(strstr($path, 'vendor'), 7));
+                    $fqdn = explode(DIRECTORY_SEPARATOR, $info);
+
+                    $out = '';
+                    foreach ($fqdn as $folder)
+                    {
+                        $out .= ucfirst($folder) . '\\\\';
+                    }
+
+                    $output[] = '\\\\' . substr($out, 0, -6);
+                }
             }
         }
 
